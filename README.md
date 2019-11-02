@@ -110,10 +110,25 @@ export default [
         type: 'password'
     },
     {
-        name: 'confirmation_password',
-        label: 'Confirm Password',
-        type: 'password'
-    },
+                name: 'confirmation_password',
+                label: 'confirmation_password',
+                
+                type: 'password',
+                validationRules: [
+
+                         {
+                        rule: 'required',
+                        message:  'confirm password is required',
+                    },
+
+                    {
+                        rule: 'match',
+                        item:'password',
+                        message:  'password not match with confirmation password',
+                    },
+
+                ]
+            },
 ];
 ```
 
