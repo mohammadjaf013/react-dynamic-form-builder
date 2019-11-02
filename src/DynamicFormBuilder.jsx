@@ -45,9 +45,22 @@ class DynamicFormBuilder extends React.Component {
 
                 return value !== null && value !== undefined;
             },
+            match: (value,base) =>{
+              if(this.state.form.hasOwnProperty(base.item)){
+                  if(this.state.form[base.item] == value)
+                      return true;
+              }
+              return false;
+            },
             email: value => (
                 !value || /^$|^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/.test(value)
             ),
+            size: (value,base) => {
+
+                if(value == undefined)
+                    return false;
+                return (value.length < base.lengthChar) ? false : true
+            },
             decimal: value => (
                 !value || /^$|^\d+$|^\.\d+|^\d+\.\d+$/.test(value)
             ),
@@ -135,6 +148,7 @@ class DynamicFormBuilder extends React.Component {
                 }
 
                 try {
+
                     return this.filterRules[filter](event.target.value);
                 } catch (e) {
                     console.error(`Invalid filter rule ${filter} used on input ${event.target.name}`);
@@ -165,15 +179,18 @@ class DynamicFormBuilder extends React.Component {
         let valid = true;
         let errorMessage = null;
 
+
         if (!Array.isArray(rules)) {
             rules = [rules];
         }
 
         rules.forEach((rule) => {
             let ruleMessage = null;
+            let base = null;
 
             if (rule.constructor === Object) {
                 ruleMessage = rule.message;
+                base = rule;
                 rule = rule.rule;
             }
 
@@ -207,7 +224,7 @@ class DynamicFormBuilder extends React.Component {
                     }
 
                     try {
-                        if (!this.validationRules[rule](value)) {
+                        if (!this.validationRules[rule](value,base)) {
                             errorMessage = ruleMessage;
                             valid = false;
                         }
@@ -374,13 +391,13 @@ class DynamicFormBuilder extends React.Component {
     getInputValidationError(inputName) {
         const { validationErrors } = this.state;
         const { formErrors } = this.props;
-      
+
         const validationError = validationErrors[inputName];
         const propError = formErrors[inputName];
-        
+
         return (validationError && validationError !== true) ? validationError : propError;
     }
-    
+
     submitForm() {
         const { form } = this.state;
         const { onSubmit } = this.props;
@@ -390,10 +407,11 @@ class DynamicFormBuilder extends React.Component {
 
             onSubmit({
                 valid: valid,
-                data: {
-                    form,
-                    validationErrors,
-                },
+                model:  form,
+                // data: {
+                //     form,
+                //     validationErrors,
+                // },
             });
         }
     }
@@ -451,7 +469,7 @@ class DynamicFormBuilder extends React.Component {
         }
 
         const props = {
-            className: `${classPrefix}-${input.inputClass || defaultInputClass || ''} ${validationErrors[input.name] || formErrors[input.name] ? invalidInputClass : validationErrors[input.name] === false ? validInputClass : ''}`,
+            className: `${input.inputClass || defaultInputClass || ''} ${validationErrors[input.name] || formErrors[input.name] ? invalidInputClass : validationErrors[input.name] === false ? validInputClass : ''}`,
             name: randomisedFields[input.name] || input.name,
             value: form[input.name] || input.defaultValue || '',
             placeholder: input.placeholder,
@@ -502,7 +520,7 @@ class DynamicFormBuilder extends React.Component {
                             return (
                                 <div
                                     key={i}
-                                    className={`${classPrefix}-${input.radioContainerClass || ''}`}
+                                    className={`${input.radioContainerClass || ''}`}
                                 >
                                     <input
                                         name={input.name}
@@ -530,7 +548,7 @@ class DynamicFormBuilder extends React.Component {
 
         const { classPrefix, defaultLabelClass } = this.props;
         const props = {
-            className: classPrefix + '-' + (input.label.className || defaultLabelClass || ''),
+            className:  (input.label.className || defaultLabelClass || ''),
             htmlFor: input.name,
         };
 
@@ -553,7 +571,8 @@ class DynamicFormBuilder extends React.Component {
 
         if (validationError) {
             return (
-                <p className={`${classPrefix}-${defaultValidationErrorClass || ''}`}>
+                <p className={`${defaultValidationErrorClass || ''}`}>
+                {/*<p className={`${classPrefix}-${defaultValidationErrorClass || ''}`}>*/}
                     {validationError}
                 </p>
             );
@@ -566,7 +585,9 @@ class DynamicFormBuilder extends React.Component {
         if (submitButton) {
             return (
                 <button
-                    className={`${classPrefix}-${submitButton.className || defaultSubmitClass || ''} ${this.validateForm(false) ? '' : 'invalid'} ${loading ? 'loading' : ''}`}
+                    type={'submit'}
+                    className={`${submitButton.className || defaultSubmitClass || ''} ${this.validateForm(false) ? '' : 'invalid'} ${loading ? 'loading' : ''}`}
+                    // className={`${classPrefix}-${submitButton.className || defaultSubmitClass || ''} ${this.validateForm(false) ? '' : 'invalid'} ${loading ? 'loading' : ''}`}
                     onClick={this.submitForm}
                 >
                     {this.renderSubmitButtonContents()}
@@ -584,7 +605,10 @@ class DynamicFormBuilder extends React.Component {
 
         return submitButton.text;
     }
-
+    _submit = (e)=>{
+        e.preventDefault();
+        this.submitForm()
+    }
     renderInputs(inputs) {
         const { canRender } = this.state;
         const { classPrefix, defaultContainerClass } = this.props;
@@ -599,15 +623,18 @@ class DynamicFormBuilder extends React.Component {
                     const isArray = input.constructor === Array;
                     const containerClass =  isArray
                         ? `${classPrefix}-row`
-                        : `${classPrefix}-${input.containerClass || defaultContainerClass || ''}`;
+                        : `${input.containerClass || defaultContainerClass || ''}`;
+                        // : `${classPrefix}-${input.containerClass || defaultContainerClass || ''}`;
 
                     return (
                         <Fragment key={i}>
+                            <form onSubmit={this._submit} method={'post'}>
                             <div className={containerClass}>
                                 {!isArray && this.renderLabel(input)}
                                 {this.renderInput(input)}
                                 {!isArray && this.renderValidationErrors(input)}
                             </div>
+                            </form>
                         </Fragment>
                     );
                 })}
@@ -638,17 +665,17 @@ class DynamicFormBuilder extends React.Component {
 DynamicFormBuilder.defaultProps = {
     defaultValues: {},
     values: null,
-    classPrefix: 'rdf',
-    defaultContainerClass: 'container',
-    defaultInputClass: 'input',
-    defaultValidationErrorClass: 'error-label',
-    defaultLabelClass: 'label',
+    classPrefix: '',
+    defaultContainerClass: 'form-group',
+    defaultInputClass: 'form-control',
+    defaultValidationErrorClass: 'parsley-errors-list',
+    defaultLabelClass: 'd-block',
     form: [],
-    defaultSubmitClass: 'submit',
-    invalidInputClass: 'invalid',
+    defaultSubmitClass: 'btn btn-primary',
+    invalidInputClass: 'parsley-error',
     validInputClass: 'valid',
     loading: false,
-    loadingElement: null,
+    loadingElement: <div className=" spinner-border spinner-border-sm m-0"  role="status"></div>,
     formErrors: {},
     validationTimeout: 1000,
     onChange: () => null,
